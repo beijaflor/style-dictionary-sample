@@ -1,0 +1,10 @@
+color-primary:
+  value: red
+  comment: color for primary item
+  attributes:
+    category: color
+color-text:
+  value: black
+  comment: color for text
+  attributes:
+    category: color

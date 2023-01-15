@@ -1,5 +1,13 @@
+const yaml = require("yaml");
+
 module.exports = {
-  source: [".style-dictionary/tokens/**/*.json"],
+  parsers: [
+    {
+      pattern: /\.yaml$/,
+      parse: ({ contents }) => yaml.parse(contents),
+    },
+  ],
+  source: [".style-dictionary/tokens/**/*.yaml"],
   platforms: {
     scss: {
       transformGroup: "scss",

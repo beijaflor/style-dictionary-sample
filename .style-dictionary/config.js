@@ -1,7 +1,7 @@
 const StyleDictionary = require("style-dictionary");
 const {
   fileHeader,
-  getTypeScriptType,
+  getTypeScriptType: _getTypeScriptType,
 } = require("style-dictionary/lib/common/formatHelpers");
 const yaml = require("yaml");
 
@@ -10,6 +10,39 @@ const buildPath = "dist/";
 const options = {
   showFileHeader: false,
 };
+
+/** プレフィックスをつけた Branded Type 名を取得する */
+function getTypeName(type) {
+  const chars = type.split("");
+  chars[0] = chars[0].toUpperCase();
+  return `DesignToken${chars.join("")}`;
+}
+
+/** デフォルトの getTypeScriptType をオーバーライドして、 string 型だった場合は Branded Type を返す */
+function getTypeScriptType(value, type) {
+  const rawType = _getTypeScriptType(value);
+  return rawType === "string" && typeof type !== "undefined"
+    ? getTypeName(type)
+    : rawType;
+}
+
+/** 型定義の先頭に挿入する型定義を生成する */
+function generateTypeDefinition(types) {
+  let typeDef = [];
+  typeDef.push(`type Branded<T, U extends string> = T & { [key in U]: never }`);
+  typeDef.push(
+    `type TokenType = ${types.map((token) => `'${token}'`).join(" | ")}`
+  );
+  typeDef.push(
+    `type DesignToken<T extends string> = T extends TokenType ? Branded<string, T | 'designToken'> : never`
+  );
+  typeDef = typeDef.concat(
+    types.map(
+      (token) => `export type ${getTypeName(token)} = DesignToken<'${token}'>`
+    )
+  );
+  return typeDef.join("\n") + "\n\n";
+}
 
 /** コメントを jsdoc 形式で挿入する */
 function injectComment(content, comment) {
@@ -39,26 +72,35 @@ StyleDictionary.registerFormat({
 });
 
 /**
- * `typescript/es6-declarations` を拡張してコメントの挿入を jsdoc 形式に変更したフォーマッタ
+ * `typescript/es6-declarations` に以下の拡張を加えたフォーマッタ
+ * - コメントの挿入を jsdoc 形式に変更
+ * - トークンに指定される型を BrandedType に変更
  * ref: https://github.com/amzn/style-dictionary/blob/v3.7.1/lib/common/formats.js#L373-L413
  */
 StyleDictionary.registerFormat({
-  name: "typescript/es6-declarations-jsdoc",
+  name: "typescript/es6-declarations-jsdoc-with-branded-type",
   formatter: function ({ dictionary, file }) {
+    const types = new Set();
+    const tokens = dictionary.allProperties.map(function (prop) {
+      const category = prop.original.attributes?.category;
+      if (typeof category !== "undefined") {
+        types.add(category);
+      }
+      return injectComment(
+        `export const ${prop.name}: ${getTypeScriptType(
+          prop.value,
+          category
+        )};`,
+        prop.comment
+      );
+    });
     return (
       fileHeader({ file }) +
-      dictionary.allProperties
-        .map(function (prop) {
-          return injectComment(
-            `export const ${prop.name}: ${getTypeScriptType(prop.value)};`,
-            prop.comment
-          );
-        })
-        .join("\n")
+      generateTypeDefinition(Array.from(types)) +
+      tokens.join("\n")
     );
   },
 });
-
 module.exports = {
   parsers: [
     {
@@ -88,7 +130,7 @@ module.exports = {
           destination: "design-tokens.js",
         },
         {
-          format: "typescript/es6-declarations-jsdoc",
+          format: "typescript/es6-declarations-jsdoc-with-branded-type",
           destination: "design-tokens.d.ts",
         },
       ],

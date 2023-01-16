@@ -133,6 +133,14 @@ module.exports = {
           format: "typescript/es6-declarations-jsdoc-with-branded-type",
           destination: "design-tokens.d.ts",
         },
+        {
+          format: "javascript/module",
+          destination: "design-tokens.module.js",
+        },
+        {
+          format: "typescript/module-declarations",
+          destination: "design-tokens.module.d.ts",
+        },
       ],
       options,
     },

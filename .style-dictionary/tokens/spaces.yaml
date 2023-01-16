@@ -1,0 +1,6 @@
+gap-default:
+  value: '10px'
+  comment: default gap between components
+  sass_name: '$gap-default'
+  attributes:
+    category: spaces
